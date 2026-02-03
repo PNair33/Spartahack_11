@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HistoVox - Interactive Exhibit</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Special+Elite&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- DYNAMIC BACKGROUNDS --- */
+        #bg-layer { transition: all 0.8s ease-in-out; background-size: cover; background-position: center; }
+        
+        .bg-einstein { 
+            background-image: linear-gradient(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.7)), 
+            url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2000&auto=format&fit=crop'); 
+        }
+        
+        /* Fixed Amelia Background Class */
+        .bg-amelia { 
+            background-image: linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.4)), 
+            url('https://images.unsplash.com/photo-1524331155111-e93d47adcf4c?q=80&w=2000&auto=format&fit=crop'); 
+        } 
+
+        .font-typewriter { font-family: 'Special Elite', cursive; letter-spacing: 0.05em; }
+        .font-main { font-family: 'Outfit', sans-serif; }
+        .cursor::after { content: '█'; animation: blink 1s step-start infinite; color: #d97706; margin-left: 2px; }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .scope-screen {
+            background-color: #1a1510; 
+            background-image: linear-gradient(rgba(217, 119, 6, 0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(217, 119, 6, 0.15) 1px, transparent 1px);
+            background-size: 20px 20px;
+            border: 2px solid #554433;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+            border-radius: 8px;
+        }
+
+        .hologram-glow { box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3); transition: transform 0.3s ease; }
+        .listening-ring { animation: pulse-amber 2s infinite; }
+        @keyframes pulse-amber {
+            0% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(217, 119, 6, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+        }
+    </style>
+</head>
+<body id="bg-layer" class="bg-einstein text-slate-800 min-h-screen flex flex-col items-center justify-center transition-all duration-1000">
+
+    <div id="connection-banner" class="hidden fixed top-6 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur border border-slate-300 rounded-full px-6 py-2 z-50 shadow-xl flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-amber-600 animate-pulse" id="status-indicator"></span>
+        <span id="connection-text" class="text-xs font-main font-bold uppercase text-slate-600">Connecting...</span>
+    </div>
+
+    <div class="w-full max-w-md bg-white/60 backdrop-blur-md rounded-[2rem] shadow-2xl border border-white/80 flex flex-col overflow-hidden relative z-10 transition-all">
+        
+        <div class="p-8 pb-4 flex flex-col items-center gap-4">
+            <h1 class="text-xs font-main text-slate-500 uppercase tracking-[0.3em] font-bold bg-white/50 px-4 py-1.5 rounded-full border border-white/40">HistoVox Interactive Exhibit</h1>
+            
+            <div class="relative w-full max-w-xs group">
+                <select id="persona-select" class="w-full appearance-none bg-white/90 border-2 border-slate-200 text-slate-800 py-3 px-6 pr-10 rounded-xl shadow-sm focus:outline-none focus:border-amber-500 font-main font-bold text-center cursor-pointer text-xl transition-all hover:border-amber-300">
+                    <option value="einstein" selected>Albert Einstein</option>
+                    <option value="amelia">Amelia Earhart</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400 group-hover:text-amber-600 transition-colors">
+                    <i class="fa-solid fa-chevron-down text-sm"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-center justify-center py-4 gap-6 relative">
+            <div class="relative z-10 hologram-container group">
+                 <img id="persona-image" 
+                     src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Einstein_1921_by_F_Schmutzer_-_restoration.jpg/800px-Einstein_1921_by_F_Schmutzer_-_restoration.jpg" 
+                     alt="Persona" 
+                     class="relative w-40 h-40 rounded-full object-cover border-[6px] border-white shadow-xl hologram-glow transition-all duration-500 grayscale-[20%] sepia-[20%]">
+            </div>
+
+            <div class="w-full px-8 h-32 relative">
+                <div class="w-full h-full scope-screen relative flex items-center justify-center overflow-hidden">
+                    <canvas id="am-canvas" class="w-full h-full opacity-80"></canvas>
+                    <p id="waveform-placeholder" class="absolute text-amber-600/60 text-[10px] font-typewriter tracking-widest uppercase animate-pulse">Waiting for Signal...</p>
+                    <div id="processing-indicator" class="hidden absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-20">
+                        <i class="fa-solid fa-circle-notch fa-spin text-2xl text-amber-500"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pb-8 pt-2 px-8 flex flex-col items-center gap-4 z-20">
+            <p id="status-text" class="text-slate-500 font-main text-xs tracking-widest text-center min-h-[20px] uppercase font-bold">Press Button to Speak</p>
+            <div id="error-container" class="hidden w-full bg-red-50 border border-red-100 rounded-xl p-3 fade-in text-center">
+                <p id="error-text" class="text-xs text-red-500 font-main font-bold"></p>
+            </div>
+
+            <div id="response-container" class="hidden w-full bg-[#fcfbf9] rounded-lg p-5 border border-slate-200 min-h-[120px] shadow-inner relative">
+                <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: url('https://www.transparenttextures.com/patterns/cream-paper.png');"></div>
+                <p id="question-text" class="text-[10px] text-slate-400 mb-3 font-main font-bold uppercase tracking-wide border-b border-slate-100 pb-1">Transcript:</p>
+                <p id="response-text" class="text-slate-900 text-[15px] leading-relaxed font-typewriter"></p> 
+            </div>
+
+            <div class="pt-2">
+                <button id="record-btn" class="group relative w-20 h-20 rounded-full bg-slate-800 hover:bg-slate-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white shadow-xl transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center border-4 border-slate-100">
+                    <i id="mic-icon" class="fa-solid fa-microphone text-2xl text-amber-100"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api';
+        
+        // Fixed Image Links for Amelia
+        const personas = {
+            einstein: { 
+                img: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Einstein_1921_by_F_Schmutzer_-_restoration.jpg/800px-Einstein_1921_by_F_Schmutzer_-_restoration.jpg", 
+                bgClass: "bg-einstein" 
+            },
+            amelia: { 
+                img: "https://upload.wikimedia.org/wikipedia/commons/0/07/Amelia_Earhart_1928.jpg", 
+                bgClass: "bg-amelia" 
+            }
+        };
+
+        const recordBtn = document.getElementById('record-btn');
+        const micIcon = document.getElementById('mic-icon');
+        const statusText = document.getElementById('status-text');
+        const personaImage = document.getElementById('persona-image');
+        const placeholder = document.getElementById('waveform-placeholder');
+        const selectMenu = document.getElementById('persona-select');
+        const processingIndicator = document.getElementById('processing-indicator');
+        const responseContainer = document.getElementById('response-container');
+        const questionText = document.getElementById('question-text');
+        const responseText = document.getElementById('response-text');
+        const errorContainer = document.getElementById('error-container');
+        const errorText = document.getElementById('error-text');
+        const connectionBanner = document.getElementById('connection-banner');
+        const connectionText = document.getElementById('connection-text');
+        const statusIndicator = document.getElementById('status-indicator');
+        const body = document.getElementById('bg-layer');
+        
+        const canvas = document.getElementById('am-canvas');
+        const canvasCtx = canvas.getContext('2d');
+        
+        let audioContext, analyser, dataArray, bufferLength, animationId, mediaStream, mediaRecorder;
+        let isRecording = false;
+        let audioChunks = [];
+        let currentPersona = 'einstein';
+        let serverAvailable = false;
+        let currentAudio = null;
+
+        function stopAudioPlayback() {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+                currentAudio = null;
+            }
+        }
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvasCtx.scale(dpr, dpr);
+            canvas.style.width = `${rect.width}px`;
+            canvas.style.height = `${rect.height}px`;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let typeInterval;
+        function typeWriter(text) {
+            responseText.innerHTML = '';
+            responseText.classList.add('cursor');
+            let i = 0;
+            clearInterval(typeInterval);
+            typeInterval = setInterval(() => {
+                if (i < text.length) {
+                    responseText.textContent += text.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typeInterval);
+                    responseText.classList.remove('cursor');
+                }
+            }, 50);
+        }
+
+        async function checkServerConnection() {
+            try {
+                connectionBanner.classList.remove('hidden');
+                statusIndicator.className = 'w-2 h-2 rounded-full bg-yellow-400 animate-pulse';
+                const response = await fetch(`${API_BASE_URL.replace('/api', '')}/`, { method: 'GET', signal: AbortSignal.timeout(3000) });
+                if (response.ok) {
+                    serverAvailable = true;
+                    statusIndicator.className = 'w-2 h-2 rounded-full bg-emerald-500';
+                    connectionText.textContent = "System Online";
+                    recordBtn.disabled = false;
+                    setTimeout(() => connectionBanner.classList.add('hidden'), 2000);
+                } else { throw new Error(); }
+            } catch (error) {
+                serverAvailable = false;
+                statusIndicator.className = 'w-2 h-2 rounded-full bg-red-500';
+                connectionText.textContent = "Offline";
+                showError("Server unavailable.");
+            }
+        }
+        checkServerConnection();
+
+        function showError(message) {
+            errorText.textContent = message;
+            errorContainer.classList.remove('hidden');
+            setTimeout(() => errorContainer.classList.add('hidden'), 5000);
+        }
+
+        recordBtn.addEventListener('click', toggleRecording);
+
+        function toggleRecording() {
+            if (!serverAvailable) return showError("Check backend connection.");
+            isRecording ? stopRecording() : startRecording();
+        }
+
+        async function startRecording() {
+            try {
+                stopAudioPlayback();
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaStream = stream;
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = processRecording;
+                mediaRecorder.start();
+                isRecording = true;
+                
+                recordBtn.classList.add('listening-ring');
+                recordBtn.classList.remove('bg-slate-800');
+                recordBtn.classList.add('bg-amber-600');
+                micIcon.className = "fa-solid fa-stop text-2xl text-white";
+                statusText.innerText = "Receiving Audio...";
+                statusText.className = "text-amber-600 font-main text-xs tracking-widest text-center min-h-[20px] uppercase font-bold animate-pulse";
+                placeholder.classList.add('hidden');
+                responseContainer.classList.add('hidden');
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 2048; 
+                bufferLength = analyser.fftSize;
+                dataArray = new Uint8Array(bufferLength);
+                drawSmoothWave();
+            } catch (err) { showError("Microphone denied."); }
+        }
+
+        function stopRecording() {
+            isRecording = false;
+            if (mediaRecorder) mediaRecorder.stop();
+            if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+            cancelAnimationFrame(animationId);
+            
+            recordBtn.classList.remove('listening-ring', 'bg-amber-600');
+            recordBtn.classList.add('bg-slate-800');
+            micIcon.className = "fa-solid fa-microphone text-2xl text-amber-100";
+            statusText.innerText = "Consulting Archives...";
+            statusText.className = "text-slate-500 font-main text-xs tracking-widest text-center min-h-[20px] uppercase font-bold";
+            processingIndicator.classList.remove('hidden');
+            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        async function processRecording() {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('audio', blob, 'recording.wav');
+            formData.append('persona', currentPersona);
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/process-audio`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                processingIndicator.classList.add('hidden');
+                responseContainer.classList.remove('hidden');
+                questionText.textContent = `YOU ASKED: "${data.question}"`;
+                typeWriter(data.response);
+
+                statusText.innerText = "Speaking...";
+                statusText.className = "text-amber-600 font-main text-xs tracking-widest text-center min-h-[20px] uppercase font-bold";
+                
+                currentAudio = new Audio("data:audio/mp3;base64," + data.audio);
+                currentAudio.play();
+                simulatePlaybackWave();
+
+                currentAudio.onended = () => {
+                    cancelAnimationFrame(animationId);
+                    canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+                    placeholder.classList.remove('hidden');
+                    statusText.innerText = "Ready";
+                    statusText.className = "text-slate-500 font-main text-xs tracking-widest text-center min-h-[20px] uppercase font-bold";
+                    currentAudio = null;
+                };
+            } catch (err) {
+                processingIndicator.classList.add('hidden');
+                showError(err.message || "Error processing");
+                statusText.innerText = "Error";
+                statusText.className = "text-red-500 font-main text-xs tracking-widest text-center min-h-[20px] uppercase font-bold";
+            }
+        }
+
+        function drawSmoothWave() {
+            if (!isRecording) return;
+            animationId = requestAnimationFrame(drawSmoothWave);
+            analyser.getByteTimeDomainData(dataArray);
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            canvasCtx.fillStyle = 'rgba(26, 21, 16, 0.2)'; 
+            canvasCtx.fillRect(0, 0, width, height);
+            let sum = 0;
+            for(let i = 0; i < bufferLength; i++) { let x = dataArray[i] - 128; sum += x * x; }
+            let rms = Math.sqrt(sum / bufferLength);
+            canvasCtx.lineWidth = 3;
+            canvasCtx.strokeStyle = '#d97706';
+            canvasCtx.shadowBlur = 10;
+            canvasCtx.shadowColor = '#f59e0b';
+            canvasCtx.beginPath();
+            const time = Date.now() / 150; 
+            for (let x = 0; x < width; x++) {
+                let y = (height / 2) + Math.sin((x * 0.02) + time) * (rms * 2);
+                if (x === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+            }
+            canvasCtx.stroke();
+        }
+
+        function simulatePlaybackWave() {
+            if (!currentAudio || currentAudio.paused) return;
+            const time = Date.now() / 150;
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            canvasCtx.fillStyle = '#1a1510'; 
+            canvasCtx.fillRect(0, 0, width, height);
+            canvasCtx.lineWidth = 3;
+            canvasCtx.strokeStyle = '#d97706';
+            canvasCtx.shadowBlur = 15;
+            canvasCtx.shadowColor = '#f59e0b';
+            canvasCtx.beginPath();
+            for (let x = 0; x < width; x++) {
+                let y = (height / 2) + Math.sin((x * 0.03) + time) * 20 * Math.sin(time * 0.2) + Math.sin((x * 0.05) - time) * 10;
+                if (x === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+            }
+            canvasCtx.stroke();
+            animationId = requestAnimationFrame(simulatePlaybackWave);
+        }
+
+        selectMenu.addEventListener('change', (e) => {
+            const key = e.target.value;
+            currentPersona = key;
+            personaImage.style.opacity = 0;
+            personaImage.style.transform = "scale(0.8)";
+            
+            stopAudioPlayback();
+
+            setTimeout(() => {
+                personaImage.src = personas[key].img;
+                body.className = `min-h-screen flex flex-col items-center justify-center transition-all duration-1000 ${personas[key].bgClass}`;
+                personaImage.style.opacity = 1;
+                personaImage.style.transform = "scale(1)";
+            }, 300);
+            responseContainer.classList.add('hidden');
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !e.repeat && serverAvailable) { e.preventDefault(); toggleRecording(); }
+        });
+    </script>
+</body>
+</html>
