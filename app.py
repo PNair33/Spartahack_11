@@ -28,8 +28,8 @@ else:
     print("❌ WARNING: FFmpeg not found! Audio processing will likely fail.")
 
 # Configuration
-ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY', 'sk_f4877a1f32acc319178b776ce6e810ae6b4ad797a66f458a')
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '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')
+ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY', '')
+OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
 
 # Voice IDs
 VOICE_IDS = {
